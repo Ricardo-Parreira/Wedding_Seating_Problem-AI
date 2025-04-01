@@ -215,60 +215,6 @@ def random_crossover(parent1, parent2):
     
     return child1, child2
 
-# escolhe pelo menos uma mesa de cada solução e o resto é aleatório, assumindo que todas as mesas têm o mesmo número de pessoas
-def balanced_crossover(parent1, parent2):
-    num_tables = len(parent1)
-    people_per_table = len(parent1[0])
-
-    child = []
-    used_elements = set()
-
-    chosen_from_p1 = random.choice(parent1)
-    randomized_parent2 = random.sample(parent2, len(parent2))
-
-    for table in randomized_parent2:
-        flag=False
-        for person in table:
-            if person in chosen_from_p1:
-                flag=True
-                break
-        
-        if flag == False:
-            chosen_from_p2 = table
-            break
-
-    used_elements.update(chosen_from_p1)
-    used_elements.update(chosen_from_p2)
-    child.append(chosen_from_p1)
-    child.append(chosen_from_p2)
-
-    print(child)
-
-    table_sizes = [len(table) for table in parent1]
-
-    for i in range(num_tables-2):
-        if random.random() < 0.5:
-            table = random.choice(parent1)
-        else:
-            table = random.choice(parent2)
-        new_table = [x for x in table if x not in used_elements]
-        child.append(new_table)
-        used_elements.update(new_table)
-
-    all_elements = set(x for sublist in parent1 + parent2 for x in sublist)
-    missing_elements = list(all_elements - used_elements)
-    random.shuffle(missing_elements)
-
-    print(child)
-
-    for i in range(num_tables):
-        while len(child[i]) < table_sizes[i]:
-            if missing_elements:
-                child[i].append(missing_elements.pop(0))
-    
-    return child
-
-
 
 def simmulated_annealing(preferences, seatsPerTable):
     cooling = 0.99    #o quao rápido vai descendo essa tolerancia
@@ -331,14 +277,14 @@ def mutation(parent, mutation_prob=0.2):
     return parent
 
 
-def genetic_algorithm(num_iterations, population_size, preference_matrix, seatsPerTable):
+def genetic_algorithm_1(num_iterations, population_size, preference_matrix, seatsPerTable):
     filled_preference_matrix = fill_matrix(seatsPerTable, preference_matrix)
     population = generate_population(population_size, filled_preference_matrix, seatsPerTable)
     """print("population[0]: ")
     print(population[0])"""
     best_solution = population[0]
     best_score = evaluate_solution(population[0], filled_preference_matrix)
-    num_iterations=1000
+    #num_iterations=1000
     
     best_scores = []
     all_scores = []
@@ -410,6 +356,9 @@ def genetic_algorithm(num_iterations, population_size, preference_matrix, seatsP
     
     best_solution= population[0]
     best_score=evaluate_solution(best_solution, filled_preference_matrix)
+
+    num_guests = len(preference_matrix)
+    best_solution = [[guest for guest in table if guest < num_guests] for table in best_solution]
 
     print(f"  Final solution: {best_solution}, score: {best_score}")
 
@@ -664,14 +613,14 @@ def mutation_(parent, mutation_prob=0.1):
     return parent
 
 
-def genetic_algorithm_(num_iterations, population_size, preference_matrix, seatsPerTable):
+def genetic_algorithm_2(num_iterations, population_size, preference_matrix, seatsPerTable):
     filled_preference_matrix = fill_matrix(seatsPerTable, preference_matrix)
     population = generate_population_(population_size, filled_preference_matrix, seatsPerTable)
     """print("population[0]: ")
     print(population[0])"""
     best_solution = population[0]
     best_score = evaluate_solution_(population[0], filled_preference_matrix)
-    num_iterations=500
+    #num_iterations=500
 
     best_scores = []
     all_scores = []
@@ -747,6 +696,11 @@ def genetic_algorithm_(num_iterations, population_size, preference_matrix, seats
     best_score=evaluate_solution_(best_solution, filled_preference_matrix)
     print(f"  Final solution: {best_solution}, score: {best_score}")
 
+    final_solution = solution_to_tables(best_solution)
+    num_guests = len(preference_matrix) 
+    best_solution = [[guest for guest in table if guest < num_guests] for table in final_solution]
+
+
     #print(best_scores)
     #print(avg_scores)
     show_graph(best_scores, avg_scores)
@@ -769,14 +723,16 @@ def show_graph(best_scores, avg_scores):
 
 def run_wedding_seating(num_guests, num_tables, seats_per_table, algorithm, matrix):
     if algorithm == "Genetic Algorithm version1":
-        res = genetic_algorithm(1, 100, matrix, seats_per_table)
-        return f"Rodando Algoritmo Genético com {num_guests} convidados e {num_tables} mesas. Resultado: {res}"
+        res = genetic_algorithm_1(1000, 100, matrix, seats_per_table)
+        return f"Rodando Genetic Algorithm version1 com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
     elif algorithm == "Genetic Algorithm version2":
-        res = genetic_algorithm_(1, 100, matrix, seats_per_table)
-        return f"Rodando Simulated Annealing com {num_guests} convidados e {num_tables} mesas.  Resultado: {res}"
+        res = genetic_algorithm_2(500, 100, matrix, seats_per_table)
+        return f"Rodando Genetic Algorithm version2 com {num_guests} convidados e {seats_per_table} assentos por mesa.  Resultado: {res}"
     elif algorithm == "Simulated Annealing":
-        return f"Rodando Algoritmo Guloso com {num_guests} convidados e {num_tables} mesas."
-    elif algorithm == "Tabu search":
-        return f"Rodando Algoritmo Guloso com {num_guests} convidados e {num_tables} mesas."
+        res = simmulated_annealing(matrix, seats_per_table)
+        return f"Rodando Simulated Annealing com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
+    elif algorithm == "Tabu Search":
+        res = tabu_search(matrix, seats_per_table, max_iterations=1000, tabu_tenure=7, max_no_improve=100)
+        return f"Rodando Tabu Search com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
     else:
         return "Erro: Algoritmo desconhecido!"
