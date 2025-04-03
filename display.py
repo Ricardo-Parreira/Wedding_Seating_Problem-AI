@@ -61,7 +61,7 @@ class WeddingPlannerApp(QWidget):
         form_layout.addRow("Número de Convidados:", self.num_guests)
 
         self.num_tables = QSpinBox()
-        self.num_tables.setRange(1, 50)
+        self.num_tables.setRange(1, 100)
         form_layout.addRow("Número de Mesas:", self.num_tables)
 
         self.seats_per_table = QSpinBox()
