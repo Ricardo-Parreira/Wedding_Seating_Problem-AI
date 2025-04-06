@@ -358,37 +358,53 @@ def genetic_algorithm_1(num_iterations, population_size, preference_matrix, seat
     show_graph(best_scores, avg_scores)
     return best_solution
 
-
-
-def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7, max_no_improve=200):  # Increased max_no_improve to 200
+def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7, max_no_improve=200):  
     start_time = time.time()
+    # preenche a matriz de preferências para lidar com lugares vazios na mesa
     padded_preferences = fill_matrix(seats_per_table, preferences)
+    
+    # cria uma disposição inicial aleatória dos convidados nas mesas
     current_arrangement = random_arrangement(preferences, seats_per_table)
     best_arrangement = copy.deepcopy(current_arrangement)
+    
     current_score = evaluate_solution(current_arrangement, padded_preferences)
     best_score = current_score
+    
     tabu_list = {}
+    
     iterations_no_improve = 0
     total_iterations = 0
+    
+    # lista de frequências para detetar ciclos
     frequency_list = {}
+    
     best_scores = [best_score]
     current_scores = [current_score]
     
+    no_improve_acc = 0  # For calculating the average no improvement
+
     while total_iterations < max_iterations and iterations_no_improve < max_no_improve:
         total_iterations += 1
-        neighbor_arrangement = get_neighbour(current_arrangement)
+        
+        neighbor_arrangement = advanced_get_neighbour(current_arrangement)
+        
+        # avalia o vizinho
         neighbor_score = evaluate_solution(neighbor_arrangement, padded_preferences)
         
+        # verifica se o vizinho é tabu
         is_tabu = tuple(map(tuple, neighbor_arrangement)) in tabu_list and tabu_list[tuple(map(tuple, neighbor_arrangement))] > 0
         
+        # se for tabu e não melhorar, verifica a repetição para tentar escapar de ciclo
+        # Aspiration criterion: movimentos que melhoram a solução atual são aceites
         if is_tabu and neighbor_score <= best_score:
             if tuple(map(tuple, neighbor_arrangement)) in frequency_list:
                 frequency_list[tuple(map(tuple, neighbor_arrangement))] += 1
             else:
                 frequency_list[tuple(map(tuple, neighbor_arrangement))] = 1
                 
+            # se repetiu muitas vezes, força a sair do ciclo escolhendo outro vizinho
             if frequency_list.get(tuple(map(tuple, neighbor_arrangement)), 0) > 5:
-                for _ in range(3): # Diversificação forçada
+                for _ in range(3):  # Diversificação forçada
                     temp_neighbor = get_neighbour(current_arrangement)
                     current_arrangement = temp_neighbor
                     current_score = evaluate_solution(current_arrangement, padded_preferences)
@@ -399,10 +415,11 @@ def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7
             best_scores.append(best_score)
             continue
             
+        # atualiza a solução atual para o vizinho
         current_arrangement = neighbor_arrangement
         current_score = neighbor_score
         
-        # Update tabu list
+        # reduz a tabu tenure das soluções na lista
         keys_to_remove = []
         for arrangement, tenure in tabu_list.items():
             tabu_list[arrangement] -= 1
@@ -412,9 +429,11 @@ def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7
         for key in keys_to_remove:
             del tabu_list[key]
             
+        # adiciona a nova solução à lista tabu
         tabu_list[tuple(map(tuple, current_arrangement))] = tabu_tenure
         current_scores.append(current_score)
         
+        # se a solução atual for a melhor até agora, atualiza o melhor
         if current_score > best_score:
             best_arrangement = copy.deepcopy(current_arrangement)
             best_score = current_score
@@ -428,18 +447,22 @@ def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7
         if total_iterations % 100 == 0:
             print(f"Iteration {total_iterations}, Current score: {current_score}, Best score: {best_score}, No improvement: {iterations_no_improve}")
     
-    # Process final arrangement
+    # remove os convidados fictícios que foram usados para preencher as mesas
     original_guests = len(preferences)
     final_arrangement = []
     for table in best_arrangement:
         real_guests = [guest for guest in table if guest < original_guests]
-        if real_guests: # só adicionamos mesas que tenham convidados reais
+        if real_guests:  # só adicionamos mesas que tenham convidados reais
             final_arrangement.append(real_guests)
-            
+    
+    avg_no_improve = iterations_no_improve / total_iterations if total_iterations > 0 else 0
+    
     end_time = time.time()
     print(f"Tempo de execução: {end_time - start_time:.6f} segundos")
     show_graph(best_scores, current_scores)
-    return final_arrangement
+    
+    return final_arrangement, best_score, avg_no_improve
+
 
 def solution_to_tables(solution):
     mesas = defaultdict(list)
