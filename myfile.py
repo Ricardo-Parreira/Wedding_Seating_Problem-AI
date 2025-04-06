@@ -1,13 +1,11 @@
+import numpy as np
 import itertools
-import matplotlib.pyplot as plt
+import time
+import matplotlib as plt
 import math, copy
 import random
 from collections import defaultdict
 from collections import Counter
-import time
-import numpy as np
-
-
 
 table_arrangement = [[0,2], [1,3]]
 
@@ -31,7 +29,6 @@ def random_preferences(nguests):
                 preference_matrix[guest1][guest2] = score
                 preference_matrix[guest2][guest1] = score
     return preference_matrix
-
 
 def evaluate_table(table, matrix):
     score = 0
@@ -71,7 +68,6 @@ def average_tables(tables, matrix):
     average = score / len(tables)
     return average
 
-
 def fill_matrix(seatsPerTable, matrix):
     nguests = len(matrix)
     total_tables = math.ceil(nguests / seatsPerTable) #rounds the division up to the next integer
@@ -89,9 +85,6 @@ def fill_matrix(seatsPerTable, matrix):
         #fill the matrix with the preference of the emptyseats
         for i in range(diff):
             matrix_copy.append([0]*(nguests+diff))
-
-    return matrix_copy
-
 def random_arrangement(matrix, seatsPerTable):
     matrix_copy = fill_matrix(seatsPerTable, matrix)
 
@@ -112,7 +105,7 @@ def generate_population(population_size, preference_matrix, seatsPerTable):
         solutions.append(random_arrangement(preference_matrix, seatsPerTable))
     return solutions
 
-
+#swaps two guests
 def get_neighbour(curr_arrangement):
     neighbor_arrangement = copy.deepcopy(curr_arrangement)
     table1 = np.random.choice(len(neighbor_arrangement))
@@ -136,11 +129,33 @@ def advanced_get_neighbour(curr_arrangement):
         neighbour_arrangement = get_neighbour(neighbour_arrangement)
     return neighbour_arrangement
 
+def midpoint_crossover(parent1, parent2):
+    num_tables = len(parent1)
+    cut = num_tables // 2  # Ponto de corte no meio
+    
+    child1 = parent1[:cut] + parent2[cut:]
+    child2 = parent2[:cut] + parent1[cut:]
+    
+    assigned1, assigned2 = set(sum(child1, [])), set(sum(child2, []))
+    all_guests = set(sum(parent1, []) + sum(parent2, []))
+    remaining1, remaining2 = list(all_guests - assigned1), list(all_guests - assigned2)
+    
+    def fill_tables(child, remaining, parent_ref, assigned_set):
+        random.shuffle(remaining)
+        for i in range(num_tables):
+            missing_count = len(parent_ref[i]) - len(child[i])
+            for _ in range(missing_count):
+                if remaining:
+                    guest = remaining.pop()
+                    child[i].append(guest)
+                    assigned_set.add(guest)
+    
+    fill_tables(child1, remaining1, parent1, assigned1)
+    fill_tables(child2, remaining2, parent2, assigned2)
+    
+    return child1, child2
 def random_crossover(parent1, parent2):
     num_tables = len(parent1)
-
-    #print(len(parent1))
-    #print(len(parent2))
     
     mask = [random.choice([0, 1]) for _ in range(num_tables)]
     
@@ -154,7 +169,6 @@ def random_crossover(parent1, parent2):
     random.shuffle(parent2)
     
     for i in range(num_tables):
-        #print(i)
         if mask[i] == 0:
             child1[i] = [guest for guest in parent1[i] if guest not in assigned1]
             if child1[i] is not None: 
@@ -191,67 +205,7 @@ def random_crossover(parent1, parent2):
     
     return child1, child2
 
-
-def midpoint_crossover(parent1, parent2):
-    num_tables = len(parent1)
-    cut = num_tables // 2  # Ponto de corte no meio
-    
-    child1 = parent1[:cut] + parent2[cut:]
-    child2 = parent2[:cut] + parent1[cut:]
-    
-    assigned1, assigned2 = set(sum(child1, [])), set(sum(child2, []))
-    all_guests = set(sum(parent1, []) + sum(parent2, []))
-    remaining1, remaining2 = list(all_guests - assigned1), list(all_guests - assigned2)
-    
-    def fill_tables(child, remaining, parent_ref, assigned_set):
-        random.shuffle(remaining)
-        for i in range(num_tables):
-            missing_count = len(parent_ref[i]) - len(child[i])
-            for _ in range(missing_count):
-                if remaining:
-                    guest = remaining.pop()
-                    child[i].append(guest)
-                    assigned_set.add(guest)
-    
-    fill_tables(child1, remaining1, parent1, assigned1)
-    fill_tables(child2, remaining2, parent2, assigned2)
-    
-    return child1, child2
-
-def simmulated_annealing(preferences, seatsPerTable,):
-    #primeiro arranjamos um estado inicial random e avaliamos
-    iterations=10000
-    cooling = 0.99
-    initial_state = random_arrangement(preferences, seatsPerTable)
-    filled_preferences=fill_matrix(seatsPerTable, preferences)
-    initial_score = evaluate_solution(initial_state, filled_preferences)
-
-    temperature = standard_deviation(initial_state, filled_preferences)   #basicamente a nossa tolerância no que toca a aceitar soluçoes piores
-    cooling = 0.99    #o quao rápido vai descendo essa tolerancia
-
-    while iterations > 0:
-
-        #depois arranjamos uma soluçao vizinha à inicial e avaliamos essa
-        neighbour_state = advanced_get_neighbour(initial_state)
-        neighbour_score = evaluate_solution(neighbour_state, filled_preferences)
-        
-
-        score_diff = initial_score - neighbour_score
-
-        #se a soluçao for melhor, aceitamos
-        if score_diff < 0:
-            initial_state = neighbour_state
-            initial_score = neighbour_score
-        #se for pior aceitamos com uma certa probabilidade que depende da temperatura
-        else:
-            probability = math.exp(-score_diff / temperature)
-            if random.random() < probability:
-                initial_state = neighbour_state
-                initial_score = neighbour_score
-        temperature *= cooling
-        iterations -= 1
-    return initial_state, initial_score
-
+                 
 def tournament_select(population, preference_matrix, tournament_size, exclude=None):
     filtered_population = [ind for ind in population if ind != exclude]
     selected = random.sample(filtered_population, tournament_size)
@@ -269,15 +223,10 @@ def roulette_select(population, preference_matrix, exclude=None):
         cumulative_sum += fitness
         if rand_value <= cumulative_sum:
             return filtered_population[i]
-    
-
-
 def mutation(parent, mutation_prob=0.2):
     if random.random() < mutation_prob:  
         return get_neighbour(parent)
     return parent
-
-
 def genetic_algorithm_1(num_iterations, population_size, preference_matrix, seatsPerTable):
     start_time = time.time()
         
@@ -314,7 +263,7 @@ def genetic_algorithm_1(num_iterations, population_size, preference_matrix, seat
 
 
         # Next generation Crossover and Mutation
-        child1, child2 = midpoint_crossover(parent1, parent2)
+        child1, child2 = random_crossover(parent1, parent2)
         child1, child2 = mutation(child1), mutation(child2)
         
         population.append(child1)
@@ -339,11 +288,54 @@ def genetic_algorithm_1(num_iterations, population_size, preference_matrix, seat
 
     show_graph(best_scores, avg_scores)
     return best_solution
+    
+def call_simmulated_annealing(cooling, preferences, seatsPerTable, iterations=10000):
+    if isinstance(preferences, int):
+        preferences = random_preferences(preferences)
+    elif not isinstance(preferences, list):
+        raise ValueError("Preferences must be either an integer or a list.")
 
+    # Call the simulated annealing function
+    result, score = simmulated_annealing(cooling, preferences, seatsPerTable, iterations)
+    return result, score
+def simmulated_annealing(cooling, preferences, seatsPerTable,iterations=10000):
+    #primeiro arranjamos um estado inicial random e avaliamos
+    initial_state = random_arrangement(preferences, seatsPerTable)
+    filled_preferences=fill_matrix(seatsPerTable, preferences)
+    initial_score = evaluate_solution(initial_state, filled_preferences)
 
+    temperature = standard_deviation(initial_state, filled_preferences)   #basicamente a nossa tolerância no que toca a aceitar soluçoes piores
+    cooling = 0.99    #o quao rápido vai descendo essa tolerancia
 
-def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7, max_no_improve=100):
+    while iterations > 0:
+
+        #depois arranjamos uma soluçao vizinha à inicial e avaliamos essa
+        neighbour_state = advanced_get_neighbour(initial_state)
+        neighbour_score = evaluate_solution(neighbour_state, filled_preferences)
+        
+
+        score_diff = initial_score - neighbour_score
+
+        #se a soluçao for melhor, aceitamos
+        if score_diff < 0:
+            initial_state = neighbour_state
+            initial_score = neighbour_score
+        #se for pior aceitamos com uma certa probabilidade que depende da temperatura
+        else:
+            probability = math.exp(-score_diff / temperature)
+            if random.random() < probability:
+                initial_state = neighbour_state
+                initial_score = neighbour_score
+        temperature *= cooling
+        iterations -= 1
+    return initial_state, initial_score
+
+def tabu_search(preferences, seats_per_table, max_iterations=1000000, tabu_tenure=7, max_no_improve=100):
+    
+    # preenche a matriz de preferências para lidar com lugares vazios na mesa
     padded_preferences = fill_matrix(seats_per_table, preferences)
+    
+    # cria uma disposição inicial aleatória dos convidados nas mesas
     current_arrangement = random_arrangement(preferences, seats_per_table)
     best_arrangement = copy.deepcopy(current_arrangement)
     
@@ -352,26 +344,32 @@ def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7
     
     tabu_list = {}
     
-    iterations_no_improve = 0
+    iterations_no_improve = no_improve_acc = 0
     total_iterations = 0
     
+    # lista de frequências para detetar ciclos
     frequency_list = {}
     
     while total_iterations < max_iterations and iterations_no_improve < max_no_improve:
         total_iterations += 1
         
-        neighbor_arrangement = advanced_get_neighbour(current_arrangement)
+        neighbor_arrangement = get_neighbour(current_arrangement)
         
+        # avalia o vizinho
         neighbor_score = evaluate_solution(neighbor_arrangement, padded_preferences)
         
+        # verifica se o vizinho é tabu
         is_tabu = tuple(map(tuple, neighbor_arrangement)) in tabu_list and tabu_list[tuple(map(tuple, neighbor_arrangement))] > 0
         
+        # se for tabu e não melhorar, verifica a repetição para tentar escapar de ciclo
+        # Aspiration criterion: movimentos que melhoram a solução atual são aceites
         if is_tabu and neighbor_score <= best_score:
             if tuple(map(tuple, neighbor_arrangement)) in frequency_list:
                 frequency_list[tuple(map(tuple, neighbor_arrangement))] += 1
             else:
                 frequency_list[tuple(map(tuple, neighbor_arrangement))] = 1
                 
+        # se repetiu muitas vezes, força a sair do ciclo escolhendo outro vizinho
             if frequency_list.get(tuple(map(tuple, neighbor_arrangement)), 0) > 5:
                 for _ in range(3):  
                     temp_neighbor = get_neighbour(current_arrangement)
@@ -382,11 +380,13 @@ def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7
             iterations_no_improve += 1
             continue
         
+        # atualiza a solução atual para o vizinho
         current_arrangement = neighbor_arrangement
         current_score = neighbor_score
         
+        # reduz a tabu tenure das soluções na lista
         keys_to_remove = []
-        for arrangement, tenure in tabu_list.items():
+        for arrangement in tabu_list.keys():
             tabu_list[arrangement] -= 1
             if tabu_list[arrangement] <= 0:
                 keys_to_remove.append(arrangement)
@@ -394,8 +394,10 @@ def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7
         for key in keys_to_remove:
             del tabu_list[key]
         
+        # adiciona a nova solução à lista tabu
         tabu_list[tuple(map(tuple, current_arrangement))] = tabu_tenure
         
+        # se a solução atual for a melhor até agora, atualiza o melhor
         if current_score > best_score:
             best_arrangement = copy.deepcopy(current_arrangement)
             best_score = current_score
@@ -404,25 +406,198 @@ def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7
         else:
             iterations_no_improve += 1
         
-        if total_iterations % 100 == 0:
-            print(f"Iteration {total_iterations}, Best score: {best_score}, No improvement: {iterations_no_improve}")
+        no_improve_acc += iterations_no_improve
     
+    # remove os convidados fictícios que foram usados para preencher as mesas
     original_guests = len(preferences)
+    avg_no_improve = no_improve_acc / total_iterations
     final_arrangement = []
     for table in best_arrangement:
         real_guests = [guest for guest in table if guest < original_guests]
         if real_guests:  
             final_arrangement.append(real_guests)
-    
-    return final_arrangement
+    print(final_arrangement)
+    return (final_arrangement, best_score, avg_no_improve)
 
+
+def tabu_search_adv(preferences, seats_per_table, max_iterations=1000000, tabu_tenure=7, max_no_improve=100):
+    # gera uma matriz de preferências aleatórias entre os convidados
+    
+    # preenche a matriz de preferências para lidar com lugares vazios na mesa
+    padded_preferences = fill_matrix(seats_per_table, preferences)
+    
+    # cria uma disposição inicial aleatória dos convidados nas mesas
+    current_arrangement = random_arrangement(preferences, seats_per_table)
+    best_arrangement = copy.deepcopy(current_arrangement)
+    
+    current_score = evaluate_solution(current_arrangement, padded_preferences)
+    best_score = current_score
+    
+    tabu_list = {}
+    
+    iterations_no_improve = no_improve_acc = 0
+    total_iterations = 0
+    
+    # lista de frequências para detetar ciclos
+    frequency_list = {}
+    
+    while total_iterations < max_iterations and iterations_no_improve < max_no_improve:
+        total_iterations += 1
+        
+        neighbor_arrangement = get_neighbour(current_arrangement)
+        
+        # avalia o vizinho
+        neighbor_score = evaluate_solution(neighbor_arrangement, padded_preferences)
+        
+        # verifica se o vizinho é tabu
+        is_tabu = tuple(map(tuple, neighbor_arrangement)) in tabu_list and tabu_list[tuple(map(tuple, neighbor_arrangement))] > 0
+        
+        # se for tabu e não melhorar, verifica a repetição para tentar escapar de ciclo
+        # Aspiration criterion: movimentos que melhoram a solução atual são aceites
+        if is_tabu and neighbor_score <= best_score:
+            if tuple(map(tuple, neighbor_arrangement)) in frequency_list:
+                frequency_list[tuple(map(tuple, neighbor_arrangement))] += 1
+            else:
+                frequency_list[tuple(map(tuple, neighbor_arrangement))] = 1
+                
+        # se repetiu muitas vezes, força a sair do ciclo escolhendo outro vizinho
+            if frequency_list.get(tuple(map(tuple, neighbor_arrangement)), 0) > 5:
+                for _ in range(3):  
+                    temp_neighbor = advanced_get_neighbour(current_arrangement)
+                    current_arrangement = temp_neighbor
+                current_score = evaluate_solution(current_arrangement, padded_preferences)
+                frequency_list.clear()
+            
+            iterations_no_improve += 1
+            continue
+        
+        # atualiza a solução atual para o vizinho
+        current_arrangement = neighbor_arrangement
+        current_score = neighbor_score
+        
+        # reduz a tabu tenure das soluções na lista
+        keys_to_remove = []
+        for arrangement in tabu_list.keys():
+            tabu_list[arrangement] -= 1
+            if tabu_list[arrangement] <= 0:
+                keys_to_remove.append(arrangement)
+        
+        for key in keys_to_remove:
+            del tabu_list[key]
+        
+        # adiciona a nova solução à lista tabu
+        tabu_list[tuple(map(tuple, current_arrangement))] = tabu_tenure
+        
+        # se a solução atual for a melhor até agora, atualiza o melhor
+        if current_score > best_score:
+            best_arrangement = copy.deepcopy(current_arrangement)
+            best_score = current_score
+            iterations_no_improve = 0
+            frequency_list.clear()
+        else:
+            iterations_no_improve += 1
+        
+        no_improve_acc += iterations_no_improve
+    
+    # remove os convidados fictícios que foram usados para preencher as mesas
+    original_guests = len(preferences)
+    avg_no_improve = no_improve_acc / total_iterations
+    final_arrangement = []
+    for table in best_arrangement:
+        real_guests = [guest for guest in table if guest < original_guests]
+        if real_guests:  
+            final_arrangement.append(real_guests)
+    print(final_arrangement)
+    return (final_arrangement, best_score, avg_no_improve)
+
+
+import time
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+constant_nguests = 300
+preferences_300 = random_preferences(constant_nguests)
+
+# Parâmetros
+seats_per_table = 10
+tabu_tenure = 7  # Tenure fixo do tabu para a comparação
+num_runs = 30  # Número aumentado de execuções para uma comparação mais robusta
+max_iterations = 100000  # Número maior de iterações para aumentar o tempo total de execução
+
+results_tabu_search = {'scores': [], 'times': []}
+results_tabu_search_adv = {'scores': [], 'times': []}
+
+for run in range(num_runs):
+    start_time = time.time()
+    
+    for _ in range(10): 
+        solution, final_score, avg_no_improve = tabu_search(preferences_300, seats_per_table, max_iterations=max_iterations, tabu_tenure=tabu_tenure)
+    
+    end_time = time.time()
+    results_tabu_search['scores'].append(final_score)
+    results_tabu_search['times'].append((end_time - start_time) * 1000)  
+
+    start_time = time.time()
+    
+    for _ in range(10): 
+        solution, final_score, avg_no_improve = tabu_search_adv(preferences_300, seats_per_table, max_iterations=max_iterations, tabu_tenure=tabu_tenure)
+    
+    end_time = time.time()
+    results_tabu_search_adv['scores'].append(final_score)
+    results_tabu_search_adv['times'].append((end_time - start_time) * 1000)  # Tempo em milissegundos
+
+avg_score_tabu_search = np.mean(results_tabu_search['scores'])
+avg_time_tabu_search = np.mean(results_tabu_search['times'])
+avg_score_tabu_search_adv = np.mean(results_tabu_search_adv['scores'])
+avg_time_tabu_search_adv = np.mean(results_tabu_search_adv['times'])
+
+
+fig, ax = plt.subplots(2, 2, figsize=(14, 12))
+
+ax[0, 0].plot(range(1, num_runs+1), results_tabu_search['scores'], label='tabu_search', color='blue', marker='o')
+ax[0, 0].plot(range(1, num_runs+1), results_tabu_search_adv['scores'], label='tabu_search_adv', color='orange', marker='x')
+ax[0, 0].set_title(f"Pontuação por Execução\n(Tabu Tenure: {tabu_tenure}, Convidados: {constant_nguests})")
+ax[0, 0].set_xlabel("Execução")
+ax[0, 0].set_ylabel("Pontuação")
+ax[0, 0].legend()
+ax[0, 0].grid(True, axis='y', linestyle='--', alpha=0.7)
+
+ax[0, 1].plot(range(1, num_runs+1), results_tabu_search['times'], label='tabu_search', color='blue', marker='o')
+ax[0, 1].plot(range(1, num_runs+1), results_tabu_search_adv['times'], label='tabu_search_adv', color='orange', marker='x')
+ax[0, 1].set_title(f"Tempo de Execução por Execução\n(Tabu Tenure: {tabu_tenure}, Convidados: {constant_nguests})")
+ax[0, 1].set_xlabel("Execução")
+ax[0, 1].set_ylabel("Tempo de Execução (milissegundos)")
+ax[0, 1].legend()
+ax[0, 1].grid(True, axis='y', linestyle='--', alpha=0.7)
+
+min_time = min(min(results_tabu_search['times']), min(results_tabu_search_adv['times']))
+max_time = max(max(results_tabu_search['times']), max(results_tabu_search_adv['times']))
+ax[0, 1].set_ylim([min_time - 0.001, max_time + 0.001]) 
+ax[1, 0].bar(['tabu_search', 'tabu_search_adv'], [avg_score_tabu_search, avg_score_tabu_search_adv], color=['blue', 'orange'])
+ax[1, 0].set_title(f"Comparação do Score Média\n(Tabu Tenure: {tabu_tenure}, Convidados: {constant_nguests})")
+ax[1, 0].set_ylabel("Pontuação Média")
+ax[1, 0].set_xlabel("Algoritmo")
+ax[1, 0].grid(True, axis='y', linestyle='--', alpha=0.7)
+
+ax[1, 1].bar(['tabu_search', 'tabu_search_adv'], [avg_time_tabu_search, avg_time_tabu_search_adv], color=['blue', 'orange'])
+ax[1, 1].set_title(f"Comparação do Tempo de Execução Médio\n(Tabu Tenure: {tabu_tenure}, Convidados: {constant_nguests})")
+ax[1, 1].set_ylabel("Tempo de Execução (milissegundos)")
+ax[1, 1].set_xlabel("Algoritmo")
+ax[1, 1].grid(True, axis='y', linestyle='--', alpha=0.7)
+
+plt.tight_layout()
+plt.show()
+
+print(f"Tabu Search - Pontuação Média: {avg_score_tabu_search:.4f}, Tempo de Execução Médio: {avg_time_tabu_search:.4f} ms")
+print(f"Tabu Search Adv - Pontuação Média: {avg_score_tabu_search_adv:.4f}, Tempo de Execução Médio: {avg_time_tabu_search_adv:.4f} ms")
+from collections import defaultdict
 
 def solution_to_tables(solution):
     mesas = defaultdict(list)
     for convidado, mesa in enumerate(solution):
         mesas[mesa].append(convidado)
     return list(mesas.values())
-
 def evaluate_table_(table, matrix):
     score = 0
     for guest in table:
@@ -463,7 +638,6 @@ def average_tables_(solution, matrix):
     average = score / len(tables)
     return average
 
-
 def generate_population_(pop_size, preference_matrix, seatsPerTable):
     num_guests = len(preference_matrix)
     num_tables = (num_guests + seatsPerTable - 1) // seatsPerTable
@@ -479,7 +653,6 @@ def generate_population_(pop_size, preference_matrix, seatsPerTable):
         population.append(individual)
     
     return population
-
 
 def get_neighbour_(curr_arrangement):
     neighbor = curr_arrangement[:]
@@ -507,27 +680,11 @@ def advanced_get_neighbour_(curr_arrangement):
         neighbour_arrangement = get_neighbour_(neighbour_arrangement)
     return neighbour_arrangement
 
-
-
 def random_crossover_(parent1, parent2, preference_matrix, seatsPerTable):
     num_guests = len(parent1)
     num_tables = (num_guests + seatsPerTable - 1) // seatsPerTable
 
     cut = random.randint(1, num_guests - 2)
-
-    child1 = parent1[:cut] + parent2[cut:]
-    child2 = parent2[:cut] + parent1[cut:]
-
-    child1 = optimize_child(child1, num_tables, seatsPerTable, preference_matrix)
-    child2 = optimize_child(child2, num_tables, seatsPerTable, preference_matrix)
-
-    return child1, child2
-
-def midpoint_crossover_(parent1, parent2, preference_matrix, seatsPerTable):
-    num_guests = len(parent1)
-    num_tables = (num_guests + seatsPerTable - 1) // seatsPerTable
-
-    cut = num_guests // 2  # Ponto de corte no meio
 
     child1 = parent1[:cut] + parent2[cut:]
     child2 = parent2[:cut] + parent1[cut:]
@@ -547,7 +704,7 @@ def optimize_child(child, num_tables, seatsPerTable, preference_matrix):
     underfilled = {mesa: seatsPerTable - table_counts.get(mesa, 0) for mesa in range(num_tables) if table_counts.get(mesa, 0) < seatsPerTable}
 
     if not overfilled:
-        return child  # solução já está válida
+        return child 
 
     # Identificar os convidados a mover (os que menos contribuem)
     guest_to_move = []
@@ -564,7 +721,7 @@ def optimize_child(child, num_tables, seatsPerTable, preference_matrix):
         while idx < len(underfilled_list) and underfilled_list[idx][1] == 0:
             idx += 1
         if idx >= len(underfilled_list):
-            break  # tudo alocado
+            break
         mesa_destino = underfilled_list[idx][0]
         child[guest] = mesa_destino
         underfilled_list[idx] = (mesa_destino, underfilled_list[idx][1] - 1)
@@ -576,17 +733,11 @@ def contribution_to_table(guest, solution, matrix):
     mesa = solution[guest]
     same_table = [i for i in range(len(solution)) if i != guest and solution[i] == mesa]
     return sum(matrix[guest][other] + matrix[other][guest] for other in same_table)
-
-
 def tournament_select_(population, preference_matrix, tournament_size, exclude=None):
     filtered_population = [ind for ind in population if ind != exclude]
 
     if len(filtered_population) == 0:
         return exclude 
-
-    #print("pop size: ")
-    #print(len(filtered_population))
-    # Corrigir o tamanho do torneio para nunca ultrapassar o tamanho da população
     tournament_size = min(tournament_size, len(filtered_population))
 
     selected = random.sample(filtered_population, tournament_size)
@@ -605,13 +756,21 @@ def roulette_select_(population, preference_matrix, exclude=None):
         cumulative_sum += fitness
         if rand_value <= cumulative_sum:
             return filtered_population[i]
-    
-
 def mutation_(parent, mutation_prob=0.1):
     if random.random() < mutation_prob:  
         return get_neighbour_(parent)
     return parent
 
+import matplotlib.pyplot as plt
+
+def show_graph(best_scores, avg_scores):
+    plt.plot(range(1, len(best_scores) + 1), best_scores, label='Best Individual Score')
+    plt.plot(range(1, len(avg_scores) + 1), avg_scores, linestyle='--', color='red', label='Average Population Score')
+    plt.xlabel('Iteration')
+    plt.ylabel('Score')
+    plt.title('Algorithm Performance')
+    plt.legend()
+    plt.show()
 
 def genetic_algorithm_2(num_iterations, population_size, preference_matrix, seatsPerTable):
     start_time = time.time()
@@ -681,39 +840,71 @@ def genetic_algorithm_2(num_iterations, population_size, preference_matrix, seat
     show_graph(best_scores, avg_scores)
 
     return best_solution
+def genetic_algorithm_2(num_iterations, population_size, preference_matrix, seatsPerTable):
+    start_time = time.time()
+        
+    
+    filled_preference_matrix = fill_matrix(seatsPerTable, preference_matrix)
+    population = generate_population_(population_size, filled_preference_matrix, seatsPerTable)
+    """print("population[0]: ")
+    print(population[0])"""
+    best_solution = population[0]
+    best_score = evaluate_solution_(population[0], filled_preference_matrix)
+    #num_iterations=500
+
+    best_scores = []
+    all_scores = []
+    avg_scores = []
+
+    for solution in population:
+        all_scores.append(evaluate_solution_(solution, filled_preference_matrix))
+    
+
+    print(f"Initial solution: {best_solution}, score: {best_score}")
+
+    while(num_iterations > 0):
+
+        #parent1 = tournament_select_( population, filled_preference_matrix, 10)
+        parent1 = roulette_select_(population, filled_preference_matrix)
+        #parent2 = tournament_select_( population, filled_preference_matrix, 10, parent1)
+        parent2 = roulette_select_(population, filled_preference_matrix, exclude=parent1)
+
+        if parent2 is None:
+            parent2 = parent1
+
+        #estatisticas para grafico
+        avg_score = np.mean(all_scores)
+        avg_scores.append(avg_score)
+        best_solution = max(population, key=lambda x: evaluate_solution_(x, filled_preference_matrix))
+        best_scores.append(evaluate_solution_(best_solution, filled_preference_matrix))
 
 
+        # Next generation Crossover and Mutation
+        child1, child2 = random_crossover_(parent1, parent2, filled_preference_matrix, seatsPerTable)
 
 
-def show_graph(best_scores, avg_scores):
-    plt.plot(range(1, len(best_scores) + 1), best_scores, label='Best Individual Score')
-    plt.plot(range(1, len(avg_scores) + 1), avg_scores, linestyle='--', color='red', label='Average Population Score')
-    plt.xlabel('Iteration')
-    plt.ylabel('Score')
-    plt.title('Algorithm Performance')
-    plt.legend()
-    plt.show()
+        child1, child2 = mutation_(child1), mutation_(child2)
+        
+        population.append(child1)
+        population.append(child2)
+        all_scores.append(evaluate_solution_(child1, filled_preference_matrix))
+        all_scores.append(evaluate_solution_(child2, filled_preference_matrix))
+        population.sort(key=lambda sol: evaluate_solution_(sol, filled_preference_matrix), reverse=True)
+        population = population[:population_size]
+
+        num_iterations-=1
+    
+    best_solution= population[0]
+    best_score=evaluate_solution_(best_solution, filled_preference_matrix)
+    print(f"  Final solution: {best_solution}, score: {best_score}")
+
+    final_solution = solution_to_tables(best_solution)
+    num_guests = len(preference_matrix) 
+    best_solution = [[guest for guest in table if guest < num_guests] for table in final_solution]
 
 
+    end_time = time.time()
+    print(f"Tempo de execução: {end_time - start_time:.6f} segundos")
+    show_graph(best_scores, avg_scores)
 
-def run_wedding_seating(num_guests, num_tables, seats_per_table, algorithm, matrix):
-    if algorithm == "Genetic Algorithm version1":
-        start_time = time.time()
-        res = genetic_algorithm_1(500, 100, matrix, seats_per_table)
-        end_time = time.time()
-        print(f"Tempo de execução: {end_time - start_time:.6f} segundos")
-        return f"Rodando Genetic Algorithm version1 com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
-    elif algorithm == "Genetic Algorithm version2":
-        start_time = time.time()
-        res = genetic_algorithm_2(500, 100, matrix, seats_per_table)
-        end_time = time.time()
-        print(f"Tempo de execução: {end_time - start_time:.6f} segundos")
-        return f"Rodando Genetic Algorithm version2 com {num_guests} convidados e {seats_per_table} assentos por mesa.  Resultado: {res}"
-    elif algorithm == "Simulated Annealing":
-        res = simmulated_annealing(matrix, seats_per_table)
-        return f"Rodando Simulated Annealing com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
-    elif algorithm == "Tabu Search":
-        res = tabu_search(matrix, seats_per_table, max_iterations=1000, tabu_tenure=7, max_no_improve=100)
-        return f"Rodando Tabu Search com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
-    else:
-        return "Erro: Algoritmo desconhecido!"
+    return best_solution
