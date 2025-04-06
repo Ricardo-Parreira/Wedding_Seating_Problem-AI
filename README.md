@@ -7,9 +7,9 @@ To get started, you need to install the necessary libraries:
 pip install -U tqdm
 pip install PyQt6
 pip install pyqt6-tools
-``
+```
 Once the libraries are installed, you can run the program with the following command:
-python src/main.py
+python src/display.py
 
 ## Usage
 
