@@ -60,10 +60,6 @@ class WeddingPlannerApp(QWidget):
         self.num_guests.valueChanged.connect(self.update_preference_matrix)
         form_layout.addRow("Número de Convidados:", self.num_guests)
 
-        self.num_tables = QSpinBox()
-        self.num_tables.setRange(1, 100)
-        form_layout.addRow("Número de Mesas:", self.num_tables)
-
         self.seats_per_table = QSpinBox()
         self.seats_per_table.setRange(1, 20)
         form_layout.addRow("Assentos por Mesa:", self.seats_per_table)
@@ -99,11 +95,10 @@ class WeddingPlannerApp(QWidget):
     def gerar_planeamento(self):
         algorithm = self.algorithm_dropdown.currentText()
         num_guests = self.num_guests.value()
-        num_tables = self.num_tables.value()
         seats_per_table = self.seats_per_table.value()
 
         self.preference_display.setPlainText("Processando...")
-        resultado = run_wedding_seating(num_guests, num_tables, seats_per_table, algorithm, self.preference_matrix)
+        resultado = run_wedding_seating(num_guests, seats_per_table, algorithm, self.preference_matrix)
         
         matrix_str = '\n'.join([' '.join(map(str, row)) for row in self.preference_matrix])
         self.preference_display.setPlainText(matrix_str)
