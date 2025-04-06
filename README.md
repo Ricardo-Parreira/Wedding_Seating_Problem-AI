@@ -10,7 +10,7 @@ pip install pyqt6-tools
 ```
 Once the libraries are installed, you can run the program with the following command:
 ```
-python src/display.py
+python3 display.py
 ```
 
 ## Usage
