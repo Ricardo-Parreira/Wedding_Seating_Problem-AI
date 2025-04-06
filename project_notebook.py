@@ -218,24 +218,30 @@ def midpoint_crossover(parent1, parent2):
     
     return child1, child2
 
-def simmulated_annealing(preferences, seatsPerTable,):
+def simmulated_annealing(preferences, seatsPerTable):
+    start_time = time.time()
+    
     #primeiro arranjamos um estado inicial random e avaliamos
-    iterations=10000
+    iterations = 10000
     cooling = 0.99
     initial_state = random_arrangement(preferences, seatsPerTable)
-    filled_preferences=fill_matrix(seatsPerTable, preferences)
+    filled_preferences = fill_matrix(seatsPerTable, preferences)
     initial_score = evaluate_solution(initial_state, filled_preferences)
 
     temperature = standard_deviation(initial_state, filled_preferences)   #basicamente a nossa tolerância no que toca a aceitar soluçoes piores
     cooling = 0.99    #o quao rápido vai descendo essa tolerancia
 
+    # Add tracking for best scores
+    best_scores = [initial_score]
+    current_scores = [initial_score]
+    
+    iterations_count = 0
     while iterations > 0:
-
+        iterations_count += 1
         #depois arranjamos uma soluçao vizinha à inicial e avaliamos essa
         neighbour_state = advanced_get_neighbour(initial_state)
         neighbour_score = evaluate_solution(neighbour_state, filled_preferences)
         
-
         score_diff = initial_score - neighbour_score
 
         #se a soluçao for melhor, aceitamos
@@ -248,10 +254,22 @@ def simmulated_annealing(preferences, seatsPerTable,):
             if random.random() < probability:
                 initial_state = neighbour_state
                 initial_score = neighbour_score
+                
         temperature *= cooling
         iterations -= 1
+        
+        current_scores.append(initial_score)
+        best_scores.append(max(best_scores[-1], initial_score))
+        
+        if iterations_count % 1000 == 0:
+            print(f"Iteration {iterations_count}, Current score: {initial_score}, Best score: {best_scores[-1]}")
+    
+    end_time = time.time()
+    print(f"Tempo de execução: {end_time - start_time:.6f} segundos")
+    
+    show_graph(best_scores, current_scores)
+    
     return initial_state, initial_score
-
 def tournament_select(population, preference_matrix, tournament_size, exclude=None):
     filtered_population = [ind for ind in population if ind != exclude]
     selected = random.sample(filtered_population, tournament_size)
@@ -342,26 +360,23 @@ def genetic_algorithm_1(num_iterations, population_size, preference_matrix, seat
 
 
 
-def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7, max_no_improve=100):
+def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7, max_no_improve=200):  # Increased max_no_improve to 200
+    start_time = time.time()
     padded_preferences = fill_matrix(seats_per_table, preferences)
     current_arrangement = random_arrangement(preferences, seats_per_table)
     best_arrangement = copy.deepcopy(current_arrangement)
-    
     current_score = evaluate_solution(current_arrangement, padded_preferences)
     best_score = current_score
-    
     tabu_list = {}
-    
     iterations_no_improve = 0
     total_iterations = 0
-    
     frequency_list = {}
+    best_scores = [best_score]
+    current_scores = [current_score]
     
     while total_iterations < max_iterations and iterations_no_improve < max_no_improve:
         total_iterations += 1
-        
         neighbor_arrangement = get_neighbour(current_arrangement)
-        
         neighbor_score = evaluate_solution(neighbor_arrangement, padded_preferences)
         
         is_tabu = tuple(map(tuple, neighbor_arrangement)) in tabu_list and tabu_list[tuple(map(tuple, neighbor_arrangement))] > 0
@@ -373,28 +388,32 @@ def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7
                 frequency_list[tuple(map(tuple, neighbor_arrangement))] = 1
                 
             if frequency_list.get(tuple(map(tuple, neighbor_arrangement)), 0) > 5:
-                for _ in range(3):  
+                for _ in range(3): # Diversificação forçada
                     temp_neighbor = get_neighbour(current_arrangement)
                     current_arrangement = temp_neighbor
-                current_score = evaluate_solution(current_arrangement, padded_preferences)
+                    current_score = evaluate_solution(current_arrangement, padded_preferences)
                 frequency_list.clear()
-            
+                
             iterations_no_improve += 1
+            current_scores.append(current_score)
+            best_scores.append(best_score)
             continue
-        
+            
         current_arrangement = neighbor_arrangement
         current_score = neighbor_score
         
+        # Update tabu list
         keys_to_remove = []
         for arrangement, tenure in tabu_list.items():
             tabu_list[arrangement] -= 1
             if tabu_list[arrangement] <= 0:
                 keys_to_remove.append(arrangement)
-        
+                
         for key in keys_to_remove:
             del tabu_list[key]
-        
+            
         tabu_list[tuple(map(tuple, current_arrangement))] = tabu_tenure
+        current_scores.append(current_score)
         
         if current_score > best_score:
             best_arrangement = copy.deepcopy(current_arrangement)
@@ -403,19 +422,24 @@ def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7
             frequency_list.clear()
         else:
             iterations_no_improve += 1
+            
+        best_scores.append(best_score)
         
         if total_iterations % 100 == 0:
-            print(f"Iteration {total_iterations}, Best score: {best_score}, No improvement: {iterations_no_improve}")
+            print(f"Iteration {total_iterations}, Current score: {current_score}, Best score: {best_score}, No improvement: {iterations_no_improve}")
     
+    # Process final arrangement
     original_guests = len(preferences)
     final_arrangement = []
     for table in best_arrangement:
         real_guests = [guest for guest in table if guest < original_guests]
-        if real_guests:  
+        if real_guests: # só adicionamos mesas que tenham convidados reais
             final_arrangement.append(real_guests)
-    
+            
+    end_time = time.time()
+    print(f"Tempo de execução: {end_time - start_time:.6f} segundos")
+    show_graph(best_scores, current_scores)
     return final_arrangement
-
 
 def solution_to_tables(solution):
     mesas = defaultdict(list)
@@ -702,18 +726,24 @@ def run_wedding_seating(num_guests, num_tables, seats_per_table, algorithm, matr
         res = genetic_algorithm_1(500, 100, matrix, seats_per_table)
         end_time = time.time()
         print(f"Tempo de execução: {end_time - start_time:.6f} segundos")
-        return f"Rodando Genetic Algorithm version1 com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
+        return f"A executar Genetic Algorithm version1 com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
     elif algorithm == "Genetic Algorithm version2":
         start_time = time.time()
         res = genetic_algorithm_2(500, 100, matrix, seats_per_table)
         end_time = time.time()
         print(f"Tempo de execução: {end_time - start_time:.6f} segundos")
-        return f"Rodando Genetic Algorithm version2 com {num_guests} convidados e {seats_per_table} assentos por mesa.  Resultado: {res}"
+        return f"A executar  Genetic Algorithm version2 com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
     elif algorithm == "Simulated Annealing":
-        res = simmulated_annealing(matrix, seats_per_table)
-        return f"Rodando Simulated Annealing com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
+        start_time = time.time()
+        res, score = simmulated_annealing(matrix, seats_per_table)
+        end_time = time.time()
+        print(f"Tempo de execução: {end_time - start_time:.6f} segundos")
+        return f"A executar Simulated Annealing com {num_guests} convidados e {seats_per_table} assentos por mesa. Score: {score}. Resultado: {res}"
     elif algorithm == "Tabu Search":
+        start_time = time.time()
         res = tabu_search(matrix, seats_per_table, max_iterations=1000, tabu_tenure=7, max_no_improve=100)
-        return f"Rodando Tabu Search com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
+        end_time = time.time()
+        print(f"Tempo de execução: {end_time - start_time:.6f} segundos")
+        return f"A executar Tabu Search com {num_guests} convidados e {seats_per_table} assentos por mesa. Resultado: {res}"
     else:
         return "Erro: Algoritmo desconhecido!"
