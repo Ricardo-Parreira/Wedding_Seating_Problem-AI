@@ -360,7 +360,7 @@ def tabu_search(preferences, seats_per_table, max_iterations=1000, tabu_tenure=7
     while total_iterations < max_iterations and iterations_no_improve < max_no_improve:
         total_iterations += 1
         
-        neighbor_arrangement = advanced_get_neighbour(current_arrangement)
+        neighbor_arrangement = get_neighbour(current_arrangement)
         
         neighbor_score = evaluate_solution(neighbor_arrangement, padded_preferences)
         

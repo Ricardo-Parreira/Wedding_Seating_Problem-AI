@@ -77,9 +77,9 @@ class WeddingPlannerApp(QWidget):
         self.preference_display.setReadOnly(True)
         layout.addWidget(self.preference_display)
 
-        self.button = QPushButton("Gerar Planejamento", self)
+        self.button = QPushButton("Gerar Planeamento", self)
         self.button.setFont(QFont("Arial", 14))
-        self.button.clicked.connect(self.gerar_planejamento)
+        self.button.clicked.connect(self.gerar_planeamento)
         self.button.setStyleSheet("background-color: #008CBA; color: white; font-size: 16px; padding: 10px; border-radius: 5px;")
         layout.addWidget(self.button)
 
@@ -96,7 +96,7 @@ class WeddingPlannerApp(QWidget):
             matrix_str = '\n'.join([' '.join(map(str, row)) for row in self.preference_matrix])
             self.preference_display.setPlainText(matrix_str)
 
-    def gerar_planejamento(self):
+    def gerar_planeamento(self):
         algorithm = self.algorithm_dropdown.currentText()
         num_guests = self.num_guests.value()
         num_tables = self.num_tables.value()
@@ -108,7 +108,7 @@ class WeddingPlannerApp(QWidget):
         matrix_str = '\n'.join([' '.join(map(str, row)) for row in self.preference_matrix])
         self.preference_display.setPlainText(matrix_str)
 
-        QMessageBox.information(self, "Planejamento", f"Resultado do Algoritmo:\n{resultado}")
+        QMessageBox.information(self, "Planeamento", f"Resultado do Algoritmo:\n{resultado}")
 
     def voltar_tela_inicial(self):
         self.stacked_widget.setCurrentIndex(0)
